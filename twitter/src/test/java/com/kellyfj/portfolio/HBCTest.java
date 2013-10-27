@@ -9,6 +9,7 @@ import com.twitter.hbc.httpclient.auth.Authentication;
 import com.twitter.hbc.httpclient.auth.OAuth1;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -55,9 +56,10 @@ public class HBCTest {
 				break;
 			}
 
-			String msg = queue.poll(5, TimeUnit.SECONDS);
+			String msg = queue.poll(5, TimeUnit.SECONDS);			
 			if (msg != null) {
-				printMessage(msg);
+				Tweet t = extractTweet(msg);
+				printTweet(t);
 			} else {
 				System.out.println("Did not receive a message in 5 seconds");
 			}
@@ -71,52 +73,62 @@ public class HBCTest {
 	}
 
 	@SuppressWarnings(value = { "unchecked" })
-	private static void printMessage(String msg) {
+	private static Tweet extractTweet(String msg) {
+		Tweet t = new Tweet();
 		try {
 			ObjectMapper mapper = new ObjectMapper();
 			Map<String, Object> data = mapper.readValue(msg.getBytes(), Map.class);
 			if (!data.containsKey("delete")) {
 				//System.out.println(msg);
 
-				String language = (String) data.get("lang");
-				// String createdAt = (String) data.get("created_at");
-				String text = (String) data.get("text");
+				t.setLanguage((String) data.get("lang"));
+				t.setCreatedAt((String) data.get("created_at"));
+				t.setText((String) data.get("text"));
 				Map<String, Object> user = (Map<String, Object>) data.get("user");
-				String userID = (String) user.get("screen_name");
-				
-				//if(data.containsKey("entities"))
-				//	System.out.println("Entities present" + data.get("entities"));
-								
-				if (language.startsWith("en")) {
-					System.out.println(userID + "\t" + language + "\t" + text);	
+				t.setUserID((String) user.get("screen_name"));
+
+				if(data.get("coordinates") !=null) {
+					Map<String,Object> coordinates = (Map<String, Object>) data.get("coordinates");
+					List<Double> longLat = (List<Double>) coordinates.get("coordinates");
+					t.setLongitude(longLat.get(0));
+					t.setLatitude(longLat.get(1));
 				}
 				if(data.get("place")!=null){
 					//System.out.println("Place present" + data.get("place"));
 					Map<String,Object> placeData = (Map<String, Object>) data.get("place");
-					String placeType = (String) placeData.get("place_type");
-					String placeName = (String) placeData.get("name");
-					String country = (String) placeData.get("country");
-					System.out.println("Place Details:" + placeType + "\t" + placeName + "\t" + country);	
+					t.setPlaceType((String) placeData.get("place_type"));
+					t.setPlaceName((String) placeData.get("name"));
+					t.setPlaceCountry((String) placeData.get("country"));
 				}
 				if(data.get("entities")!=null) {
 					Map<String,Object> entityData = (Map<String, Object>) data.get("entities");
-					Object hashtags = data.get("hashtags");
+					Object hashtags = entityData.get("hashtags");
 					if (hashtags != null) {
-						String[] tags = (String[]) hashtags;
-						System.out.println("HashTags: "+Arrays.toString(tags));
+						List<String> tags = (List<String>) hashtags;
+						t.setHashtags(tags);
 					}
 				}
 			}
 
-		} catch (JsonParseException e) {
-			e.printStackTrace();
-		} catch (JsonMappingException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
+		} catch (Exception e) {
+			throw new RuntimeException(e);
 		}
+		return t;
 	}
 
+	@SuppressWarnings(value = { "unchecked" })
+	private static void printTweet(Tweet t) {
+		if(t==null)
+			throw new IllegalArgumentException("Tweet cannot be null");
+		if(t.getText()==null)
+			return;
+		System.out.println(t.getUserID() + "\t" + t.getLanguage() + "\t" + t.getText());
+		if(t.getLatitude()!=null) System.out.println("Coordinates " + t.getLatitude() + "," + t.getLongitude());
+		if(t.getPlaceName() != null) System.out.println("Place Details:" + t.getPlaceType() + "\t" + t.getPlaceName() + "\t" + t.getPlaceCountry());
+		if(t.getTags()!=null && !t.getTags().isEmpty()) System.out.println("Tags : " + t.getTags());
+	}
+
+	
 	public static void main(String[] args) {
 		try {
 
