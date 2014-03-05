@@ -1,4 +1,7 @@
+## Summary
 This is my play space where I play around with APIs (e.g. twitter), new development paradigms (e.g. Android), new languages etc.
+
+## Details
 
 Projects | Description
 ---------|-------------
